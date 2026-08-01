@@ -27,11 +27,11 @@ jobs:
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
           echo "chatid=$CHATID" >> "$GITHUB_OUTPUT"
 
-      - name: "Notify: compiling"
+      - name: Notify compiling
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ steps.info.outputs.chatid }}" \
-            -d text="🔄 Компилирую..."
+            -d text="Компилирую..."
 
       - name: Setup Android NDK r25c
         id: setup-ndk
@@ -46,13 +46,13 @@ jobs:
           if ! unzip -q "${{ steps.info.outputs.file }}" -d project; then
             curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
               -d chat_id="${{ steps.info.outputs.chatid }}" \
-              -d text="❌ Не удалось распаковать архив."
+              -d text="Не удалось распаковать архив."
             exit 1
           fi
           if [ ! -f project/jni/Android.mk ]; then
             curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
               -d chat_id="${{ steps.info.outputs.chatid }}" \
-              -d text="❌ В архиве не найдена папка jni/Android.mk."
+              -d text="В архиве не найдена папка jni/Android.mk."
             exit 1
           fi
 
@@ -73,7 +73,7 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ steps.info.outputs.chatid }}" \
-            -d text="✅ Готово! Библиотеки во вложении."
+            -d text="Готово! Библиотеки во вложении."
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument" \
             -F chat_id="${{ steps.info.outputs.chatid }}" \
             -F document=@libs.zip
@@ -83,4 +83,4 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ steps.info.outputs.chatid }}" \
-            -d text="❌ Ошибка сборки. Проверь Android.mk и структуру архива (нужна jni/Android.mk)."
+            -d text="Ошибка сборки. Проверь Android.mk и структуру архива (нужна jni/Android.mk)."
