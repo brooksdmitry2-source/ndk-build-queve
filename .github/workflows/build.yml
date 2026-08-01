@@ -1,0 +1,18 @@
+name: Build NDK project
+
+on:
+  push:
+    branches: [ builds ]
+    paths:
+      - 'uploads/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - run: bash scripts/build.sh
