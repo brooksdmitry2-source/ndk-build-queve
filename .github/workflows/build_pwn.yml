@@ -1,0 +1,19 @@
+name: Build PWN project
+
+on:
+  push:
+    branches: [ builds ]
+    paths:
+      - 'pwn_uploads/**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - shell: bash
+        run: bash scripts/build_pwn.sh
