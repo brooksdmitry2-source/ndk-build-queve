@@ -1,4 +1,4 @@
-name: Build NDK project
+name: Build NDK (JNI) project
 
 on:
   push:
@@ -15,4 +15,4 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - run: bash scripts/build.sh
+      - run: bash scripts/build_jni.sh
