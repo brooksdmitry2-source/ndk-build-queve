@@ -135,6 +135,107 @@ $form = @{
 Invoke-RestMethod -Uri "https://api.telegram.org/bot$env:TELEGRAM_BOT_TOKEN/sendDocument" -Method Post -Form $form | Out-Null
 
 Report-Result "success"
+Cleanup-RepoFile                Accept        = "application/vnd.github+json"
+            }
+            $body = @{
+                message = "cleanup: remove processed pawn upload [skip ci]"
+                sha     = $blobSha
+                branch  = "builds"
+            } | ConvertTo-Json
+            Invoke-RestMethod -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/$file" `
+                -Method Delete -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+        }
+    } catch {}
+}
+
+function Fail([string]$text) {
+    Send-Message $text
+    Report-Result "failed"
+    Cleanup-RepoFile
+    exit 1
+}
+
+$startTime = Get-Date
+
+Send-Message "1️⃣ Файл успешно загружен. Ваша задача добавлена в очередь."
+
+New-Item -ItemType Directory -Force -Path project | Out-Null
+try {
+    Expand-Archive -Path $file -DestinationPath project -Force
+} catch {
+    Fail "Не удалось распаковать архив."
+}
+
+$modeDir = Join-Path "project" "mode"
+$pawnoDir = Join-Path $modeDir "pawno"
+$gmDir = Join-Path $modeDir "gamemodes"
+
+if (-not (Test-Path $pawnoDir) -or -not (Test-Path $gmDir)) {
+    Fail "В архиве не найдена папка mode/pawno или mode/gamemodes."
+}
+
+$pwnFile = Get-ChildItem -Path $gmDir -Filter *.pwn | Select-Object -First 1
+if (-not $pwnFile) {
+    Fail "В gamemodes не найден .pwn файл."
+}
+
+# Пробуем сначала pawncc.exe (это реальный компилятор командной строки,
+# который лежит рядом с pawno.exe и обычно вызывается им же по кнопке Compile).
+# Если его нет - пробуем pawno.exe напрямую.
+$compiler = Join-Path $pawnoDir "pawncc.exe"
+if (-not (Test-Path $compiler)) {
+    $compiler = Join-Path $pawnoDir "pawno.exe"
+}
+if (-not (Test-Path $compiler)) {
+    Fail "В папке pawno не найден компилятор (pawncc.exe или pawno.exe)."
+}
+
+$amxPath = Join-Path $gmDir ($pwnFile.BaseName + ".amx")
+
+# Учитываем ВСЕ папки в архиве, где есть хотя бы один .inc файл - не только pawno/include.
+$incDirs = Get-ChildItem -Path "project" -Recurse -Filter *.inc -File -ErrorAction SilentlyContinue |
+    ForEach-Object { $_.DirectoryName } | Sort-Object -Unique
+
+$compilerArgs = @($pwnFile.FullName, "-o$amxPath")
+foreach ($d in $incDirs) {
+    $compilerArgs += "-i$d"
+}
+
+# Запускаем компилятор из его собственной папки (pawno), чтобы он подхватил
+# лежащий рядом pawn.cfg с настройками по умолчанию - так же, как это
+# происходит при компиляции через сам pawno.exe на компьютере.
+Push-Location $pawnoDir
+try {
+    $output = (& $compiler @compilerArgs 2>&1 | Out-String)
+    $exitCode = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+
+if (-not (Test-Path $amxPath)) {
+    $tail = $output.Trim()
+    if ($tail.Length -gt 1500) {
+        $tail = $tail.Substring($tail.Length - 1500)
+    }
+    Fail "Ошибка компиляции (код $exitCode). Вывод компилятора:`n`n$tail"
+}
+
+Compress-Archive -Path $amxPath -DestinationPath "build_amx.zip" -Force
+
+$duration = (Get-Date) - $startTime
+$durationStr = "{0}м {1}с" -f [int]$duration.TotalMinutes, $duration.Seconds
+
+Send-Message "✅ Компиляция завершена!
+📄 Файл: $($pwnFile.Name)
+⏱️ Время сборки: $durationStr"
+
+$form = @{
+    chat_id  = $chatid
+    document = Get-Item "build_amx.zip"
+}
+Invoke-RestMethod -Uri "https://api.telegram.org/bot$env:TELEGRAM_BOT_TOKEN/sendDocument" -Method Post -Form $form | Out-Null
+
+Report-Result "success"
 Cleanup-RepoFile
 New-Item -ItemType Directory -Force -Path project | Out-Null
 try {
