@@ -1,10 +1,10 @@
-name: Build PWN project
+name: Build PAWN project
 
 on:
   push:
     branches: [ builds ]
     paths:
-      - 'pwn_uploads/**'
+      - 'uploads_pawn/**'
 
 jobs:
   build:
@@ -15,5 +15,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - shell: bash
-        run: bash scripts/build_pwn.sh
+      - name: Run PAWN build
+        shell: pwsh
+        run: ./scripts/build_pawn.ps1
